@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.11.35327.3
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "tokero_DCA_calculator", "tokero_DCA_calculator.csproj", "{E2DAA528-A787-44E6-8385-0074EE045DD3}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E2DAA528-A787-44E6-8385-0074EE045DD3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E2DAA528-A787-44E6-8385-0074EE045DD3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E2DAA528-A787-44E6-8385-0074EE045DD3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E2DAA528-A787-44E6-8385-0074EE045DD3}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {3DC9E0C3-02E5-4087-8B15-0D8E78CFE24E}
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,185 @@
+﻿@page "/calculator"
+@rendermode InteractiveServer
+@using tokero_DCA_calculator.Models
+@using tokero_DCA_calculator.Components.Service
+<PageTitle>DCA Calculator</PageTitle>
+
+@inject CryptoService cryptoService
+@inject BinanceService binanceService
+
+<h3>DCA Calculator</h3>
+
+<div>
+    <!-- Render all investment entries -->
+    @foreach (var entry in investmentEntries)
+    {
+        <div>
+            <label>Cryptocurrency: </label> @entry.Cryptocurrency
+            <label>Start Date: </label> @entry.StartDate.ToString("yyyy-MM-dd")
+            <label>Invested Amount</label> @entry.InvestedAmount
+            <label>Percentage</label> @entry.PercentageInvestedAmount
+        </div>
+    }
+    
+    <!-- New selection section -->
+    <div>
+        <label for="cryptoSelect">Select Cryptocurrency:</label>
+        <select id="cryptoSelect" @bind="newInvestment.Cryptocurrency">
+            <option value="">-- Select Cryptocurrency --</option>
+            @foreach (var crypto in cryptocurrencies)
+            {
+                <option value="@crypto.Key">@crypto.Key</option>
+            }
+        </select>
+    </div>
+
+    <div>
+        <label for="startDate">Investment Start Date:</label>
+        <input type="date" id="startDate" @bind="newInvestment.StartDate"  />
+    </div>
+
+    <div>
+        <label for="investAmount">Monthly Investment Amount (EUR):</label>
+        <input type="number" id="investAmount" @bind="newInvestment.InvestedAmount" />
+    </div>
+    <div>
+        <label for="percentageInvestAmount">Percentage(%):</label>
+        <input type="number" id="percentageInvestAmount" @bind="newInvestment.PercentageInvestedAmount" />
+    </div>
+
+    <button @onclick="AddInvestmentEntry">Add Investment</button>
+</div>
+
+
+<table class="table">
+   
+    <!-- Table Columns -->
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Cryptocurrency</th>
+            <th>Invested Amount</th>
+            <th>Cryptocurrency Amount</th>
+            <th>Value At Date</th>
+            <th>ROI</th>
+        </tr>
+    </thead>
+
+    <!-- Table Rows -->
+    <tbody>
+        @foreach (var entry in investmentEntries)
+        {
+            var startDate = entry.StartDate;
+            var currentDate = DateTime.Now;
+            var monthsDifference = ((currentDate.Year - startDate.Year) * 12) + currentDate.Month - startDate.Month;
+
+            for (int monthOffset = 0; monthOffset <= monthsDifference; monthOffset++)
+            {
+                var monthDate = startDate.AddMonths(monthOffset);
+
+                // Calculate currentPrice for current month (and save it for later use)
+                var currentPriceEntry = priceEntries.Find(el => el.CryptoCurrencyName.Equals(entry.Cryptocurrency) && 
+                                                                el.Date.Equals(monthDate));
+                if (currentPriceEntry == null) { continue; } // Skip if no price entry is found for the current month
+
+                //calculate cryptoAmount
+                decimal currentPrice = currentPriceEntry.Price;
+                decimal cryptoAmount = 0;
+                if(currentPrice != 0)
+                {
+                    cryptoAmount = entry.InvestedAmount / currentPrice;
+                }
+
+                // Calculate ROI
+                decimal ROI = 0;
+                var nextMonth = monthDate.AddMonths(1);
+                var nextPriceEntry = priceEntries.Find(el => el.Date.Equals(nextMonth) && 
+                                                             el.CryptoCurrencyName.Equals(entry.Cryptocurrency));
+                if(nextPriceEntry != null)
+                {
+                    ROI = CalculateROI(nextPriceEntry, entry, currentPrice);
+                }
+
+                <!--Display data for each row representing each month-->
+                <tr>
+                    <td>@monthDate.ToString("MM/yyyy")</td>
+                    <td>@entry.Cryptocurrency</td>
+                    <td>@entry.InvestedAmount</td>
+                    <td>@cryptoAmount</td>
+                    <th>@currentPrice</th>
+                    <td>@ROI.ToString("F4")%</td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>
+
+
+@code {
+    private InvestmentEntry newInvestment = new InvestmentEntry { StartDate = new DateTime(DateTime.Now.Year, 1, 1) }; // Set default to January 1st of the current year
+    private List<InvestmentEntry> investmentEntries = new List<InvestmentEntry>();
+    private List<PriceEntry> priceEntries = new List<PriceEntry>();
+    private Dictionary<string, string> cryptocurrencies = new Dictionary<string, string>
+    {
+        { "Bitcoin", "BTCUSDT" },
+        { "Ethereum", "ETHUSDT" },
+        { "Solana", "SOLUSDT" },
+        { "Cardano", "ADAUSDT" }
+    };
+
+    private async void AddInvestmentEntry()
+    {
+        if (!string.IsNullOrWhiteSpace(newInvestment.Cryptocurrency) && newInvestment.StartDate != default)
+        {
+            DateTime currentDate = DateTime.Now;
+            var monthsDifference = ((currentDate.Year - newInvestment.StartDate.Year) * 12) + currentDate.Month - newInvestment.StartDate.Month;
+
+            for (int monthOffset = 0; monthOffset <= monthsDifference; monthOffset++)
+            {
+                DateTime dateToFetchPrice = newInvestment.StartDate.AddMonths(monthOffset);
+                var price = await binanceService.GetCryptoPriceAsync(cryptocurrencies[newInvestment.Cryptocurrency], dateToFetchPrice);
+                priceEntries.Add(new PriceEntry
+                {
+                   CryptoCurrencyName = newInvestment.Cryptocurrency, 
+                   Date = dateToFetchPrice,
+                   Price = price
+                });
+            }
+            newInvestment.PriceEntries = priceEntries;
+            investmentEntries.Add(new InvestmentEntry
+            {
+                    Cryptocurrency = newInvestment.Cryptocurrency,
+                    StartDate = newInvestment.StartDate,
+                    PercentageInvestedAmount = newInvestment.PercentageInvestedAmount,
+                    InvestedAmount = (newInvestment.PercentageInvestedAmount / 100) * newInvestment.InvestedAmount,                    
+            });
+            newInvestment = new InvestmentEntry
+            {
+               StartDate = new DateTime(DateTime.Now.Year, 1, 1)
+            };
+            StateHasChanged();
+        }
+    }
+    private decimal CalculateROI(PriceEntry nextPriceEntry, InvestmentEntry entry, decimal currentPrice)
+    {
+        //ROI = ((Total value of investment next month) - Total Initial Investment) / Total Initial Investement * 100
+        decimal ROI = 0;
+        if (nextPriceEntry != null)
+        {
+            decimal currPurchasedMonth1 = entry.InvestedAmount / currentPrice;
+            decimal currPurchasedMonth2 = 0;
+            if (nextPriceEntry.Price != 0)
+            {
+                currPurchasedMonth2 = entry.InvestedAmount / nextPriceEntry.Price;
+            }
+            decimal totalCurrency2Months = currPurchasedMonth1 + currPurchasedMonth2;
+            decimal totalValueForROI = totalCurrency2Months * nextPriceEntry.Price;
+
+            if (entry.InvestedAmount != 0 && entry.PercentageInvestedAmount != 0)
+            {
+                ROI = (totalValueForROI - (2 * entry.InvestedAmount)) / (2 * entry.InvestedAmount) * 100;
+            }
+        }
+        return ROI;
+    }
+}
